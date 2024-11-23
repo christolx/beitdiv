@@ -6,9 +6,19 @@ const jwt = require('jsonwebtoken');
 const authenticateJWT = require('../Middleware/authenticateJWT');
 const bcrypt = require('bcryptjs');
 const dbConfig = require('../config/dbConfig');
+const { body, validationResult } = require('express-validator');
 
+router.post('/login', 
+    [
+        body('email').isEmail().withMessage('Invalid email format'),
+        body('password').notEmpty().withMessage('Password is required'),
+    ], async (req, res, next) => {
 
-router.post('/login', async (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
     passport.authenticate('local', { session: false }, async (err, user, info) => {
         if (err){
             console.error('Error during authentication:', err); 
@@ -64,8 +74,26 @@ router.get('/profile', authenticateJWT, async (req, res, next) => {
     }
 });
 
-router.post('/register', async (req, res, next) => {
-    console.log(req.body);
+router.post('/register',
+    [   
+        body('fullName')
+            .isLength({ min: 3 })
+            .withMessage('Full name must be at least 3 characters long'),
+        body('email').isEmail().withMessage('Invalid email format'),
+        body('password')
+            .isLength({ min: 8 })
+            .withMessage('Password must be at least 8 characters long'),
+        body('phoneNumber')
+            .isMobilePhone()
+            .withMessage('Invalid phone number format'),
+        body('address').notEmpty().withMessage('Address is required'),
+    ], async (req, res, next) => {
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }   
+    
     const { fullName, email, password, phoneNumber, address } = req.body;
 
     if (!fullName || !email || !password || !phoneNumber || !address) {
@@ -102,7 +130,13 @@ router.post('/register', async (req, res, next) => {
     }
 });
 
-router.post('/token', async (req, res) => {
+router.post('/token', [body('token').notEmpty().withMessage('Refresh token is required'),], async (req, res) => {
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
     const { token } = req.body; 
 
     if (!token) {
@@ -142,7 +176,13 @@ router.post('/token', async (req, res) => {
     }
 });
 
-router.post('/logout', async (req, res) => {
+router.post('/logout', [body('token').notEmpty().withMessage('Refresh token is required'),], async (req, res) => {
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
     const { token } = req.body; 
 
     if (!token) {
