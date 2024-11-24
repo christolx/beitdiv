@@ -39,21 +39,4 @@ passport.use(
     )
 );
 
-passport.serializeUser((user, done) => {
-    done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-    try {
-        const pool = await dbConfig.connectToDatabase();
-        const result = await pool
-            .request()
-            .input('id', id)
-            .query('SELECT * FROM users WHERE user_id = @id');
-        const user = result.recordset[0];
-        done(null, user);
-    } catch (err) {
-        done(err, null);
-    }
-});
 
