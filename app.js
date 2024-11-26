@@ -8,9 +8,6 @@ const passport = require('passport');
 const session = require('express-session');
 require('./Strategy/LokalStrategy');
 
-const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
-
 const app = express(); 
 
 // View engine setup
@@ -26,8 +23,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(passport.initialize());
 
-app.use('/', indexRouter);
+// index router (default expressJS)
+app.get('/', function(req, res, next) {
+  res.render('index', { title: 'Express' });
+});
+
+const usersRouter = require('./routes/users');
+const filmsRouter = require('./routes/films');
+const theaterRouter = require('./routes/theaters');
+const showtimesRouter = require('./routes/showtimes');
+const seatsRouter = require('./routes/seats');
+const ticketsRouter = require('./routes/tickets');
+
 app.use('/users', usersRouter);
+app.use('/films', filmsRouter);
+app.use('/theaters', theaterRouter);
+app.use('/showtimes', showtimesRouter);
+app.use('/seats', seatsRouter);
+app.use('/tickets', ticketsRouter);
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {

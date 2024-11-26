@@ -1,12 +1,13 @@
 require('dotenv').config();
 const express = require('express');
-const router = express.Router();
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const authenticateJWT = require('../Middleware/authenticateJWT');
 const bcrypt = require('bcryptjs');
 const dbConfig = require('../config/dbConfig');
 const {body, validationResult} = require('express-validator');
+
+const router = express.Router();
 
 router.post('/login',
     [
