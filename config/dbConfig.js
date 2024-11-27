@@ -2,7 +2,7 @@ const sql = require('mssql');
 const config = {
     user: 'sa',
     password: 'test4321',
-    server: 'HELIOS\\SQLEXPRESS',
+    server: 'DESKTOP-SURLHIO',
     database: 'bioskop',
     options: {
         encrypt: true,

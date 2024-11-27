@@ -1,11 +1,9 @@
-const dbConfig = require('./config/dbConfig');
 const createError = require('http-errors');
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const passport = require('passport');
-const session = require('express-session');
 require('./Strategy/LokalStrategy');
 
 const app = express(); 
@@ -34,6 +32,7 @@ const theaterRouter = require('./routes/theaters');
 const showtimesRouter = require('./routes/showtimes');
 const seatsRouter = require('./routes/seats');
 const ticketsRouter = require('./routes/tickets');
+const TransactionRouter = require('./routes/transaction');
 
 app.use('/users', usersRouter);
 app.use('/films', filmsRouter);
@@ -41,6 +40,7 @@ app.use('/theaters', theaterRouter);
 app.use('/showtimes', showtimesRouter);
 app.use('/seats', seatsRouter);
 app.use('/tickets', ticketsRouter);
+app.use('/transaction', TransactionRouter);
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {

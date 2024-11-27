@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const dbConfig = require('../config/dbConfig');
 const { body, validationResult } = require('express-validator');
+const authenticateJWT = require('../Middleware/authenticateJWT');
+
 
 const router = express.Router();
 
@@ -9,21 +11,13 @@ const VALID_API_KEY = process.env.ADMIN_APIKEY;
 
 router.post('/add-seat-reservation',
     [
-        (req, res, next) => {
-            const apiKey = req.headers['x-api-key'];
-            if (!apiKey || apiKey !== VALID_API_KEY) {
-                return res.status(403).json({ message: 'Forbidden: Invalid API Key' });
-            }
-            next();
-        },
-
         body('showtime_id').isInt().withMessage('Showtime ID must be an integer'),
         body('seat_number').notEmpty().withMessage('Seat number is required'),
         body('user_id').isInt().withMessage('User ID must be an integer'),
         body('reservation_status')
             .isIn(['Available', 'Reserved'])
             .withMessage('Reservation status must be one of: Available, Reserved')
-    ],
+    ], authenticateJWT, 
     async (req, res) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -54,7 +48,7 @@ router.post('/add-seat-reservation',
 );
 
 // GET method to fetch all seat reservations for a specific showtime_id
-router.get('/get-seat-reservations/:showtime_id', async (req, res) => {
+router.get('/get-seat-reservations/:showtime_id', authenticateJWT, async (req, res) => {
     const { showtime_id } = req.params;
 
     try {
