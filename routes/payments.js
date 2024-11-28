@@ -1,14 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const dbConfig = require('../config/dbConfig');
-const { body, validationResult } = require('express-validator');
 const authenticateJWT = require('../Middleware/authenticateJWT');
 
 const router = express.Router();
 
-const { param, validationResult } = require('express-validator');
-
-rrouter.get('/payment/:payment_id',
+router.get('/payment/:payment_id',
     authenticateJWT, 
     async (req, res) => {
         const { payment_id } = req.params;

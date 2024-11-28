@@ -33,6 +33,7 @@ const showtimesRouter = require('./routes/showtimes');
 const seatsRouter = require('./routes/seats');
 const ticketsRouter = require('./routes/tickets');
 const TransactionRouter = require('./routes/transaction');
+const PaymentRouter = require('./routes/payments');
 
 app.use('/users', usersRouter);
 app.use('/films', filmsRouter);
@@ -41,6 +42,7 @@ app.use('/showtimes', showtimesRouter);
 app.use('/seats', seatsRouter);
 app.use('/tickets', ticketsRouter);
 app.use('/transaction', TransactionRouter);
+app.use('/payments', PaymentRouter);
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {
