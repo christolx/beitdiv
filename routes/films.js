@@ -26,46 +26,17 @@ router.get('/movies', async (req, res) => {
     }
 });
 
-// GET MOVIE DETAILS of a movie_id that we pass through query
-router.get('/movies/search', async (req, res) => {
-    try {
-        const { keyword } = req.query;
-
-        if (!keyword || keyword.trim() === '') {
-            return res.status(400).json({ message: 'Keyword is required' });
-        }
-
-        const pool = await dbConfig.connectToDatabase();
-
-        const query = `
-            SELECT movie_id, movie_name, age_rating, duration, dimension, language, release_date, poster_link, status
-            FROM movies
-            WHERE movie_name LIKE @keyword
-        `;
-
-        const result = await pool.request()
-            .input('keyword', dbConfig.sql.VarChar, `%${keyword}%`)
-            .query(query);
-
-        if (result.recordset.length === 0) {
-            return res.status(404).json({ message: 'No movies found matching the keyword' });
-        }
-
-        res.status(200).json(result.recordset);
-    } catch (err) {
-        console.error('Error searching movies:', err.stack || err.message);
-        res.status(500).json({ message: 'Error searching movies', error: err.message });
-    }
-});
-
+// Get movie with STATUS () and additional OPTIONAL query for filtering based off of theater id or keyword.
 router.get('/movies/:status', async (req, res) => {
     try {
         const { status } = req.params;
-        const { theater_id } = req.query;
+        const { theater_id, keyword } = req.query;
         const validStatuses = ['Upcoming', 'Tayang', 'Archived'];
 
         if (!validStatuses.includes(status)) {
-            return res.status(400).json({ message: 'Invalid status. Valid statuses are Upcoming, Tayang, or Archived.' });
+            return res.status(400).json({
+                message: 'Invalid status. Valid statuses are Upcoming, Tayang, or Archived.'
+            });
         }
 
         const pool = await dbConfig.connectToDatabase();
@@ -85,39 +56,52 @@ router.get('/movies/:status', async (req, res) => {
             FROM movies m
         `;
 
-        // If theater_id is provided, join with showtimes and theaters
+        const whereConditions = [];
+        const queryParams = { status };
+
+        whereConditions.push('m.status = @status');
+
         if (theater_id) {
-            query += `
-                JOIN showtimes s ON m.movie_id = s.movie_id
-                JOIN theaters t ON s.theater_id = t.theater_id
-                WHERE m.status = @status AND t.theater_id = @theater_id
-            `;
-            request.input('theater_id', theater_id);
-        } else {
-            // If no theater_id, just filter by status
-            query += ` WHERE m.status = @status`;
+            query += ` JOIN showtimes s ON m.movie_id = s.movie_id
+                       JOIN theaters t ON s.theater_id = t.theater_id`;
+            whereConditions.push('t.theater_id = @theater_id');
+            queryParams.theater_id = theater_id;
         }
 
-        request.input('status', status);
+        if (keyword) {
+            if (keyword.trim() === '') {
+                return res.status(400).json({ message: 'Keyword cannot be empty' });
+            }
+            whereConditions.push('m.movie_name LIKE @keyword');
+            queryParams.keyword = `%${keyword}%`;
+        }
+
+        query += ` WHERE ${whereConditions.join(' AND ')}`;
+
+        Object.entries(queryParams).forEach(([key, value]) => {
+            request.input(key, value);
+        });
 
         const result = await request.query(query);
 
         if (result.recordset.length === 0) {
             return res.status(404).json({
-                message: theater_id
-                    ? `No movies found with status '${status}' in theater ${theater_id}`
-                    : `No movies found with status '${status}'`
+                message: 'No movies found matching the search criteria',
+                searchParams: { status, theater_id, keyword }
             });
         }
 
         res.status(200).json(result.recordset);
     } catch (err) {
         console.error('Error fetching movies:', err.stack || err.message);
-        res.status(500).json({ message: 'Error fetching movies', error: err.message });
+        res.status(500).json({
+            message: 'Error fetching movies',
+            error: err.message
+        });
     }
 });
 
-// GET method to fetch a specific movie by movie_id
+// GET method to fetch a specific movie details by movie_id
 router.get('/movie/:movie_id', async (req, res) => {
     const { movie_id } = req.params;
 
