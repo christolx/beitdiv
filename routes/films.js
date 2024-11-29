@@ -26,6 +26,37 @@ router.get('/movies', async (req, res) => {
     }
 });
 
+router.get('/movies/search', async (req, res) => {
+    try {
+        const { keyword } = req.query;
+
+        if (!keyword || keyword.trim() === '') {
+            return res.status(400).json({ message: 'Keyword is required' });
+        }
+
+        const pool = await dbConfig.connectToDatabase();
+
+        const query = `
+            SELECT movie_id, movie_name, age_rating, duration, dimension, language, release_date, poster_link, status
+            FROM movies
+            WHERE movie_name LIKE @keyword
+        `;
+
+        const result = await pool.request()
+            .input('keyword', dbConfig.sql.VarChar, `%${keyword}%`)
+            .query(query);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'No movies found matching the keyword' });
+        }
+
+        res.status(200).json(result.recordset);
+    } catch (err) {
+        console.error('Error searching movies:', err.stack || err.message);
+        res.status(500).json({ message: 'Error searching movies', error: err.message });
+    }
+});
+
 router.get('/movies/:status', async (req, res) => {
     try {
         const { status } = req.params;
@@ -56,7 +87,6 @@ router.get('/movies/:status', async (req, res) => {
     }
 });
 
-
 // GET method to fetch a specific movie by movie_id
 router.get('/movie/:movie_id', async (req, res) => {
     const { movie_id } = req.params;
@@ -82,6 +112,8 @@ router.get('/movie/:movie_id', async (req, res) => {
         res.status(500).json({ message: 'Error fetching movie', error: err.message });
     }
 });
+
+
 
 router.post('/insert-movie',
     [
