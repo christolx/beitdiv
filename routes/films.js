@@ -26,6 +26,37 @@ router.get('/movies', async (req, res) => {
     }
 });
 
+router.get('/movies/:status', async (req, res) => {
+    try {
+        const { status } = req.params;
+        const validStatuses = ['Upcoming', 'Tayang', 'Archived'];
+
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status. Valid statuses are Upcoming, Tayang, or Archived.' });
+        }
+
+        const pool = await dbConfig.connectToDatabase();
+
+        const result = await pool.request()
+            .input('status', status)
+            .query(`
+                SELECT movie_id, movie_name, age_rating, duration, dimension, language, release_date, poster_link, status 
+                FROM movies 
+                WHERE status = @status
+            `);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: `No movies found with status '${status}'` });
+        }
+
+        res.status(200).json(result.recordset);
+    } catch (err) {
+        console.error('Error fetching movies by status:', err.stack || err.message);
+        res.status(500).json({ message: 'Error fetching movies', error: err.message });
+    }
+});
+
+
 // GET method to fetch a specific movie by movie_id
 router.get('/movie/:movie_id', async (req, res) => {
     const { movie_id } = req.params;
