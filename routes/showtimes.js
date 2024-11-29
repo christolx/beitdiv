@@ -8,23 +8,35 @@ const router = express.Router();
 
 const VALID_API_KEY = process.env.ADMIN_APIKEY;
 
-// GET method to fetch all showtimes for a specific theater_id and movie_id
-router.get('/get-showtimes/:theater_id/:movie_id', authenticateJWT, async (req, res) => {
-    const { theater_id, movie_id } = req.params;
+// GET method to fetch all showtimes for a specific theater_id,
+// with additional OPTIONAL query ex. (?movie_id=33) , which changes the result to
+// all showtimes for a specific theater_id && movie_id.
+router.get('/get-showtimes/:theater_id', authenticateJWT, async (req, res) => {
+    const { theater_id } = req.params;
+    const { movie_id } = req.query;
 
     try {
         const pool = await dbConfig.connectToDatabase();
+        let query = `SELECT * FROM showtimes WHERE theater_id = @theater_id`;
 
-        const result = await pool.request()
-            .input('theater_id', theater_id)
-            .input('movie_id', movie_id)
-            .query(`
-                SELECT * FROM showtimes
-                WHERE theater_id = @theater_id AND movie_id = @movie_id
-            `);
+        // Prepare the request with theater_id
+        const request = pool.request()
+            .input('theater_id', theater_id);
+
+        // If movie_id is provided, add it to the query
+        if (movie_id) {
+            query += ` AND movie_id = @movie_id`;
+            request.input('movie_id', movie_id);
+        }
+
+        const result = await request.query(query);
 
         if (result.recordset.length === 0) {
-            return res.status(404).json({ message: 'No showtimes found for the given theater and movie' });
+            return res.status(404).json({
+                message: movie_id
+                    ? 'No showtimes found for the given theater and movie'
+                    : 'No showtimes found for the given theater'
+            });
         }
 
         res.status(200).json(result.recordset);
