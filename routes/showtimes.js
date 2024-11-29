@@ -2,13 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const dbConfig = require('../config/dbConfig');
 const { body, validationResult } = require('express-validator');
+const authenticateJWT = require('../Middleware/authenticateJWT');
 
 const router = express.Router();
 
 const VALID_API_KEY = process.env.ADMIN_APIKEY;
 
 // GET method to fetch all showtimes for a specific theater_id and movie_id
-router.get('/get-showtimes/:theater_id/:movie_id', async (req, res) => {
+router.get('/get-showtimes/:theater_id/:movie_id', authenticateJWT, async (req, res) => {
     const { theater_id, movie_id } = req.params;
 
     try {

@@ -1,15 +1,15 @@
-const dbConfig = require('./config/dbConfig');
 const createError = require('http-errors');
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const passport = require('passport');
-const session = require('express-session');
+const cors = require('cors');
 require('./Strategy/LokalStrategy');
 
 const app = express(); 
 
+app.use(cors());
 // View engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
@@ -34,6 +34,8 @@ const theaterRouter = require('./routes/theaters');
 const showtimesRouter = require('./routes/showtimes');
 const seatsRouter = require('./routes/seats');
 const ticketsRouter = require('./routes/tickets');
+const TransactionRouter = require('./routes/transaction');
+const PaymentRouter = require('./routes/payments');
 
 app.use('/users', usersRouter);
 app.use('/films', filmsRouter);
@@ -41,6 +43,8 @@ app.use('/theaters', theaterRouter);
 app.use('/showtimes', showtimesRouter);
 app.use('/seats', seatsRouter);
 app.use('/tickets', ticketsRouter);
+app.use('/transaction', TransactionRouter);
+app.use('/payments', PaymentRouter);
 
 // Catch 404 and forward to error handler
 app.use(function (req, res, next) {
