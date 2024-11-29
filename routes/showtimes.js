@@ -8,41 +8,61 @@ const router = express.Router();
 
 const VALID_API_KEY = process.env.ADMIN_APIKEY;
 
-// GET method to fetch all showtimes for a specific theater_id,
-// with additional OPTIONAL query ex. (?movie_id=33) , which changes the result to
-// all showtimes for a specific theater_id && movie_id.
-router.get('/get-showtimes/:theater_id', authenticateJWT, async (req, res) => {
-    const { theater_id } = req.params;
-    const { movie_id } = req.query;
+// GET Method for fetching showtimes, with optional queries for additional filtering needs
+router.get('/get-all-showtimes', authenticateJWT, async (req, res) => {
+    const { theater_id, movie_id, date } = req.query;
 
     try {
         const pool = await dbConfig.connectToDatabase();
-        let query = `SELECT * FROM showtimes WHERE theater_id = @theater_id`;
+        let query = `
+            SELECT 
+                s.*, 
+                t.theater_name, 
+                m.movie_name
+            FROM 
+                showtimes s
+            JOIN 
+                theaters t ON s.theater_id = t.theater_id
+            JOIN 
+                movies m ON s.movie_id = m.movie_id
+            WHERE 1=1
+        `;
 
-        // Prepare the request with theater_id
-        const request = pool.request()
-            .input('theater_id', theater_id);
+        const request = pool.request();
 
-        // If movie_id is provided, add it to the query
+        if (theater_id) {
+            query += ` AND s.theater_id = @theater_id`;
+            request.input('theater_id', theater_id);
+        }
+
         if (movie_id) {
-            query += ` AND movie_id = @movie_id`;
+            query += ` AND s.movie_id = @movie_id`;
             request.input('movie_id', movie_id);
         }
+
+        if (date) {
+            query += ` AND CAST(s.showtime AS DATE) = @date`;
+            request.input('date', date);
+        }
+
+        query += ` ORDER BY s.showtime`;
 
         const result = await request.query(query);
 
         if (result.recordset.length === 0) {
             return res.status(404).json({
-                message: movie_id
-                    ? 'No showtimes found for the given theater and movie'
-                    : 'No showtimes found for the given theater'
+                message: 'No showtimes found',
+                filters: { theater_id, movie_id, date }
             });
         }
 
         res.status(200).json(result.recordset);
     } catch (err) {
-        console.error('Error fetching showtimes:', err.stack || err.message);
-        res.status(500).json({ message: 'Error fetching showtimes', error: err.message });
+        console.error('Error fetching all showtimes:', err.stack || err.message);
+        res.status(500).json({
+            message: 'Error fetching showtimes',
+            error: err.message
+        });
     }
 });
 
@@ -133,6 +153,5 @@ router.delete('/delete-showtime/:showtime_id',
         }
     }
 );
-
 
 module.exports = router;

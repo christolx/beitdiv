@@ -219,4 +219,31 @@ router.post('/logout', [body('token').notEmpty().withMessage('Refresh token is r
     }
 });
 
+// GET-ALL-USERS, hanya untuk admin
+router.get('/get-all-users', [(req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey || apiKey !== process.env.ADMIN_APIKEY) {
+        return res.status(403).json({ message: 'Forbidden: Invalid API Key' });
+    }
+    next(); }],
+    async (req, res) => {
+    try {
+        const pool = await dbConfig.connectToDatabase();
+        const result = await pool.request().query('SELECT * FROM users');
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'No users found' });
+        }
+
+        res.status(200).json(result.recordset);
+
+    } catch (err) {
+        console.error('Error fetching users:', err.message);
+        res.status(500).json({
+            message: 'Error fetching users',
+            error: err.message
+        });
+    }
+});
+
 module.exports = router;
