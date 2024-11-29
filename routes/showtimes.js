@@ -9,7 +9,7 @@ const router = express.Router();
 const VALID_API_KEY = process.env.ADMIN_APIKEY;
 
 // GET Method for fetching showtimes, with optional queries for additional filtering needs
-router.get('/get-all-showtimes', authenticateJWT, async (req, res) => {
+router.get('/get-all-showtimes', async (req, res) => {
     const { theater_id, movie_id, date } = req.query;
 
     try {
