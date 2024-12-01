@@ -59,6 +59,4 @@ router.post('/create-transaction', authenticateJWT, async (req, res) => {
     }
 });
 
-
-
 module.exports = router;
