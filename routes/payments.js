@@ -76,7 +76,6 @@ router.post('/check-payment-status', authenticateJWT, async (req, res) => {
         return res.status(400).json({ message: 'Payment record already exists for this order ID' });
         }
 
-        // Simpan hasil status pembayaran ke dalam database
         await pool.request()
             .input('order_id', order_id)
             .input('ticket_id', ticketId)
@@ -110,14 +109,14 @@ router.post('/check-payment-status', authenticateJWT, async (req, res) => {
     }
 });
 
-router.post('/RefreshStatus', authenticateJWT, async (req, res) =>{
+router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
     const { order_id } = req.body;
 
-    if(!order_id){
+    if (!order_id) {
         return res.status(400).json({ message: 'Order ID is required' });
     }
 
-    try{
+    try {
         const RefreshStatus = await getMidtransTransactionStatus(order_id);
         const { transaction_status, payment_type, gross_amount, order_id: returnedOrderId } = RefreshStatus;
 
@@ -125,46 +124,71 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) =>{
         console.log(`Transaction Status: ${transaction_status}`);
         console.log(`Payment Type: ${payment_type}`);
         console.log(`Gross Amount: ${gross_amount}`);
-        const ticket_id = order_id.slice(15); 
+
+        const ticket_id = order_id.slice(15); // Extract ticket_id
+        const payment_date = transaction_status === 'settlement' ? new Date() : null; // Tentukan payment_date
         const pool = await dbConfig.connectToDatabase();
 
+        // Update payments table
         await pool.request()
-        .input('order_id', order_id)
-        .input('payment_status', transaction_status)
-        .input(
-            'payment_date',
-            transaction_status === 'settlement' ? new Date() : null
-        )
-        .query(`
-           UPDATE payments
-            SET payment_status = @payment_status,
-                payment_date = @payment_date
-            WHERE order_id = @order_id
-           `);
+            .input('order_id', order_id)
+            .input('payment_status', transaction_status)
+            .input('payment_date', payment_date)
+            .query(`
+                UPDATE payments
+                SET payment_status = @payment_status,
+                    payment_date = @payment_date
+                WHERE order_id = @order_id
+            `);
 
         if (transaction_status === 'settlement') {
+            // Update tickets table
             await pool.request()
                 .input('ticket_id', ticket_id)
+                .input('payment_date', payment_date)
                 .query(`
                     UPDATE tickets
-                    SET status = 'Completed'
-                    WHERE ticket_id = @ticket_id
+                    SET status = 'Completed',
+                        created_at = @payment_date -- Update payment_date
+                    WHERE showtime_id = (
+                        SELECT showtime_id
+                        FROM GroupTicket
+                        WHERE ticket_id = @ticket_id
+                    )
+                    AND seat_number IN (
+                        SELECT value
+                        FROM STRING_SPLIT(
+                            (SELECT seat_number
+                             FROM GroupTicket
+                             WHERE ticket_id = @ticket_id), ' '
+                        )
+                    );
                 `);
-                return res.status(201).json({ message : 'Payment status updated successfully', transaction_status });
+
+            // Update GroupTicket table
+            await pool.request()
+                .input('ticket_id', ticket_id)
+                .input('payment_date', payment_date)
+                .query(`
+                    UPDATE GroupTicket
+                    SET status = 'Completed',
+                        created_at = @payment_date 
+                    WHERE ticket_id = @ticket_id;
+                `);
+
+            return res.status(201).json({ message: 'Payment status updated successfully', transaction_status });
         }
 
         res.status(200).json({ message: 'Payment status refreshed successfully', transaction_status });
-
-    }catch(error){
+    } catch (error) {
         console.error('Error refreshing status:', error.message);
         res.status(500).json({ message: 'Error refreshing status', error: error.message });
     }
-
-})
+});
 
 router.get('/payments', authenticateJWT, async (req, res) => {
     const user_id = req.user.id; 
-    console.log(`Fetching payments for user_id: ${user_id}`);  // Log user_id untuk debugging
+    console.log(`Fetching payments for user_id: ${user_id}`);  
   
     try {
       const pool = await dbConfig.connectToDatabase();
@@ -173,23 +197,21 @@ router.get('/payments', authenticateJWT, async (req, res) => {
         .request()
         .input('user_id', user_id)
         .query(`
-          SELECT 
-              order_id,
-              ticket_id,
-              payment_method,
-              payment_status,
-              amount,
-              va_number,
-              payment_date
-          FROM payments
-          WHERE ticket_id IN (
-              SELECT ticket_id
-              FROM tickets
-              WHERE user_id = @user_id
-          )
+            SELECT 
+                p.order_id,
+                gt.seat_number, 
+                p.payment_method,
+                p.payment_status,
+                p.amount,
+                p.va_number,
+                p.payment_date
+            FROM payments p
+            JOIN GroupTicket gt
+            ON p.ticket_id = gt.ticket_id 
+            WHERE gt.user_id = @user_id;
         `);
   
-      console.log(result.recordset);  // Log hasil query untuk memastikan data ada
+      console.log(result.recordset);  
   
       if (result.recordset.length === 0) {
         return res.status(404).json({ message: 'No payments found for the user' });
