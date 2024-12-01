@@ -35,7 +35,7 @@ router.get('/movies/:status', async (req, res) => {
 
         if (!validStatuses.includes(status)) {
             return res.status(400).json({
-                message: 'Invalid status. Valid statuses are Upcoming, Tayang, or Archived.'
+                message: 'Invalid status. Valid statuses are Upcomguing, Tayang, or Archived.'
             });
         }
 

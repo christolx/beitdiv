@@ -184,9 +184,9 @@ router.put('/update-ticket-status/:ticket_id',
     }
 );
 
-router.get('/tickets/user', authenticateJWT, async (req, res) => {
-    const user_id = req.user.id;  
-
+// Get tickets of a User ID
+router.get('/user', authenticateJWT, async (req, res) => {
+    const user_id = req.user.id;
     try {
         const pool = await dbConfig.connectToDatabase();
 
