@@ -26,7 +26,82 @@ router.get('/movies', async (req, res) => {
     }
 });
 
-// GET method to fetch a specific movie by movie_id
+// Get movie with STATUS () and additional OPTIONAL query for filtering based off of theater id or keyword.
+router.get('/movies/:status', async (req, res) => {
+    try {
+        const { status } = req.params;
+        const { theater_id, keyword } = req.query;
+        const validStatuses = ['Upcoming', 'Tayang', 'Archived'];
+
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                message: 'Invalid status. Valid statuses are Upcoming, Tayang, or Archived.'
+            });
+        }
+
+        const pool = await dbConfig.connectToDatabase();
+        const request = pool.request();
+
+        let query = `
+            SELECT DISTINCT 
+                m.movie_id, 
+                m.movie_name, 
+                m.age_rating, 
+                m.duration, 
+                m.dimension, 
+                m.language, 
+                m.release_date, 
+                m.poster_link, 
+                m.status 
+            FROM movies m
+        `;
+
+        const whereConditions = [];
+        const queryParams = { status };
+
+        whereConditions.push('m.status = @status');
+
+        if (theater_id) {
+            query += ` JOIN showtimes s ON m.movie_id = s.movie_id
+                       JOIN theaters t ON s.theater_id = t.theater_id`;
+            whereConditions.push('t.theater_id = @theater_id');
+            queryParams.theater_id = theater_id;
+        }
+
+        if (keyword) {
+            if (keyword.trim() === '') {
+                return res.status(400).json({ message: 'Keyword cannot be empty' });
+            }
+            whereConditions.push('m.movie_name LIKE @keyword');
+            queryParams.keyword = `%${keyword}%`;
+        }
+
+        query += ` WHERE ${whereConditions.join(' AND ')}`;
+
+        Object.entries(queryParams).forEach(([key, value]) => {
+            request.input(key, value);
+        });
+
+        const result = await request.query(query);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({
+                message: 'No movies found matching the search criteria',
+                searchParams: { status, theater_id, keyword }
+            });
+        }
+
+        res.status(200).json(result.recordset);
+    } catch (err) {
+        console.error('Error fetching movies:', err.stack || err.message);
+        res.status(500).json({
+            message: 'Error fetching movies',
+            error: err.message
+        });
+    }
+});
+
+// GET method to fetch a specific movie details by movie_id
 router.get('/movie/:movie_id', async (req, res) => {
     const { movie_id } = req.params;
 
