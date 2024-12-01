@@ -77,15 +77,7 @@ router.get('/get-seat-reservations/:showtime_id', authenticateJWT, async (req, r
 
 // DELETE method to remove a seat reservation based on showtime_id and seat_number
 router.delete('/delete-seat-reservation/:showtime_id/:seat_number',
-    [
-        (req, res, next) => {
-            const apiKey = req.headers['x-api-key'];
-            if (!apiKey || apiKey !== VALID_API_KEY) {
-                return res.status(403).json({ message: 'Forbidden: Invalid API Key' });
-            }
-            next();
-        }
-    ],
+    authenticateJWT,
     async (req, res) => {
         const { showtime_id, seat_number } = req.params;
 

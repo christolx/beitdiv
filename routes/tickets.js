@@ -13,7 +13,7 @@ router.post('/add-ticket',
         body('showtime_id').isInt().withMessage('Showtime ID must be an integer'),
         body('seat_number').notEmpty().withMessage('Seat number is required'),
         body('ticket_price')
-            .isFloat({min: 0})
+            .isFloat({ min: 0 })
             .withMessage('Ticket price must be a positive number'),
         body('status')
             .isIn(['Completed', 'Cancelled', 'Booked'])
@@ -23,15 +23,15 @@ router.post('/add-ticket',
         const user_id = req.user.id;
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return res.status(400).json({errors: errors.array()});
+            return res.status(400).json({ errors: errors.array() });
         }
 
-        const {showtime_id, seat_number, ticket_price, status} = req.body;
+        const { showtime_id, seat_number, ticket_price, status } = req.body;
 
         try {
             const pool = await dbConfig.connectToDatabase();
 
-            await pool.request()
+            const result = await pool.request()
                 .input('user_id', user_id)
                 .input('showtime_id', showtime_id)
                 .input('seat_number', seat_number)
@@ -39,13 +39,16 @@ router.post('/add-ticket',
                 .input('status', status)
                 .query(`
                     INSERT INTO tickets (user_id, showtime_id, seat_number, ticket_price, status)
+                    OUTPUT INSERTED.ticket_id
                     VALUES (@user_id, @showtime_id, @seat_number, @ticket_price, @status)
                 `);
 
-            res.status(201).json({message: 'Ticket added successfully'});
+            const ReturnTicket = result.recordset[0].ticket_id;
+
+            res.status(201).json({ message: 'Ticket added successfully', ticket_id: ReturnTicket });
         } catch (err) {
             console.error('Error adding ticket:', err.stack || err.message);
-            res.status(500).json({message: 'Error adding ticket', error: err.message});
+            res.status(500).json({ message: 'Error adding ticket', error: err.message });
         }
     }
 );
@@ -109,15 +112,7 @@ router.get('/get-ticket/:ticket_id', authenticateJWT, async (req, res) => {
 
 
 router.delete('/delete-ticket/:id',
-    [
-        (req, res, next) => {
-            const apiKey = req.headers['x-api-key'];
-            if (!apiKey || apiKey !== VALID_API_KEY) {
-                return res.status(403).json({message: 'Forbidden: Invalid API Key'});
-            }
-            next();
-        }
-    ], async (req, res) => {
+    authenticateJWT, async (req, res) => {
         const {id} = req.params;
 
         try {

@@ -8,7 +8,6 @@ router.post('/add-group-ticket', authenticateJWT, async (req, res) => {
     const user_id = req.user.id; 
     const { ticket_id } = req.body; 
 
-    // Validasi input
     if (!Array.isArray(ticket_id) || ticket_id.length === 0) {
         return res.status(400).json({ error: 'ticket_id harus berupa array dengan minimal 1 elemen' });
     }
@@ -27,7 +26,6 @@ router.post('/add-group-ticket', authenticateJWT, async (req, res) => {
         if (ticketsResult.recordset.length !== ticket_id.length) {
             return res.status(404).json({ error: 'Beberapa ticket_id tidak ditemukan' });
         }
-
         const sampleTicket = ticketsResult.recordset[0];
         const showtime_id = sampleTicket.showtime_id;
         const status = sampleTicket.status;
@@ -41,10 +39,11 @@ router.post('/add-group-ticket', authenticateJWT, async (req, res) => {
 
         const insertQuery = `
             INSERT INTO GroupTicket (user_id, showtime_id, seat_number, price, status, created_at)
+            OUTPUT INSERTED.ticket_id
             VALUES (@user_id, @showtime_id, @seat_number, @price, @status, GETDATE())
         `;
 
-        await pool.request()
+        const insertResult = await pool.request()
             .input('user_id', user_id)
             .input('showtime_id', showtime_id)
             .input('seat_number', seatNumbers)
@@ -52,9 +51,12 @@ router.post('/add-group-ticket', authenticateJWT, async (req, res) => {
             .input('status', status)
             .query(insertQuery);
 
+        const newGroupTicketId = insertResult.recordset[0].ticket_id;
+
         res.status(201).json({
             message: 'GroupTicket berhasil ditambahkan',
             data: {
+                group_ticket_id: newGroupTicketId,
                 user_id,
                 showtime_id,
                 seat_number: seatNumbers,
@@ -107,5 +109,37 @@ router.get('/get-group-ticket/:group_ticket_id', authenticateJWT, async (req, re
         res.status(500).json({ message: 'Error fetching group ticket', error: err.message });
     }
 });
+
+router.delete('/delete-group-ticket/:group_ticket_id', authenticateJWT, async (req, res) => {
+    const { group_ticket_id } = req.params;
+
+    try {
+        const pool = await dbConfig.connectToDatabase();
+
+        const checkResult = await pool.request()
+            .input('group_ticket_id', group_ticket_id)
+            .query(`
+                SELECT ticket_id 
+                FROM GroupTicket 
+                WHERE ticket_id = @group_ticket_id
+            `);
+
+        if (checkResult.recordset.length === 0) {
+            return res.status(404).json({ message: 'GroupTicket not found' });
+        }
+        await pool.request()
+            .input('group_ticket_id', group_ticket_id)
+            .query(`
+                DELETE FROM GroupTicket 
+                WHERE ticket_id = @group_ticket_id
+            `);
+
+        res.status(200).json({ message: 'GroupTicket deleted successfully' });
+    } catch (err) {
+        console.error('Error deleting group ticket:', err.message);
+        res.status(500).json({ message: 'Error deleting group ticket', error: err.message });
+    }
+});
+
 
 module.exports = router;
