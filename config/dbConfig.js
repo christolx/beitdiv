@@ -1,4 +1,6 @@
 const sql = require('mssql');
+
+// Konfigurasikan database config sesuai dengan authentication configuration di machine kalian!
 const config = {
     user: 'sa',
     password: 'test4321',
