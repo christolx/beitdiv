@@ -10,7 +10,6 @@ const VALID_API_KEY = process.env.ADMIN_APIKEY;
 
 router.post('/add-ticket',
     [
-        body('user_id').isInt().withMessage('User ID must be an integer'),
         body('showtime_id').isInt().withMessage('Showtime ID must be an integer'),
         body('seat_number').notEmpty().withMessage('Seat number is required'),
         body('ticket_price')
@@ -21,12 +20,13 @@ router.post('/add-ticket',
             .withMessage('Status must be one of: Completed, Cancelled, Booked')
     ], authenticateJWT,
     async (req, res) => {
+        const user_id = req.user.id;
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({errors: errors.array()});
         }
 
-        const {user_id, showtime_id, seat_number, ticket_price, status} = req.body;
+        const {showtime_id, seat_number, ticket_price, status} = req.body;
 
         try {
             const pool = await dbConfig.connectToDatabase();
@@ -184,4 +184,46 @@ router.put('/update-ticket-status/:ticket_id',
     }
 );
 
+router.get('/tickets/user', authenticateJWT, async (req, res) => {
+    const user_id = req.user.id;  
+
+    try {
+        const pool = await dbConfig.connectToDatabase();
+
+        const result = await pool.request()
+            .input('user_id', user_id)
+            .query(`
+                SELECT 
+                    t.ticket_id, 
+                    m.movie_name, 
+                    m.poster_link,
+                    th.theater_name, 
+                    s.showtime, 
+                    t.seat_number, 
+                    t.ticket_price 
+                FROM 
+                    tickets t
+                JOIN 
+                    seat_reservations sr ON t.showtime_id = sr.showtime_id AND t.seat_number = sr.seat_number
+                JOIN 
+                    showtimes s ON sr.showtime_id = s.showtime_id
+                JOIN 
+                    movies m ON s.movie_id = m.movie_id
+                JOIN 
+                    theaters th ON s.theater_id = th.theater_id
+                WHERE 
+                    t.user_id = @user_id
+                    AND t.status = 'Completed'
+            `);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'No completed tickets found for this user' });
+        }
+
+        res.status(200).json(result.recordset);  
+    } catch (err) {
+        console.error('Error fetching completed tickets for user:', err.message);
+        res.status(500).json({ message: 'Error fetching tickets', error: err.message });
+    }
+});
 module.exports = router;

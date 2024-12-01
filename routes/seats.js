@@ -9,22 +9,24 @@ const router = express.Router();
 
 const VALID_API_KEY = process.env.ADMIN_APIKEY;
 
+
+
 router.post('/add-seat-reservation',
     [
         body('showtime_id').isInt().withMessage('Showtime ID must be an integer'),
         body('seat_number').notEmpty().withMessage('Seat number is required'),
-        body('user_id').isInt().withMessage('User ID must be an integer'),
         body('reservation_status')
             .isIn(['Available', 'Reserved'])
             .withMessage('Reservation status must be one of: Available, Reserved')
     ], authenticateJWT, 
     async (req, res) => {
+        const user_id = req.user.id;
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { showtime_id, seat_number, user_id, reservation_status } = req.body;
+        const { showtime_id, seat_number, reservation_status } = req.body;
 
         try {
             const pool = await dbConfig.connectToDatabase();

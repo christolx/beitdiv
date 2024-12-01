@@ -2,8 +2,6 @@ const express = require('express');
 const coreApi = require('../config/midtransConfig');
 const authenticateJWT = require('../Middleware/authenticateJWT');
 const dbConfig = require('../config/dbConfig');
-const fetch = require('node-fetch');
-const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -23,6 +21,22 @@ router.post('/create-transaction', authenticateJWT, async (req, res) => {
     if (!ticket_id || !gross_amount || gross_amount <= 0 || !bank) {
         return res.status(400).json({ message: 'Ticket ID, valid gross amount, and bank are required' });
     }
+
+    const pool = await dbConfig.connectToDatabase();
+
+    try {
+        const existingPayment = await pool.request()
+        .input('ticket_id', ticket_id)
+        .query(`
+          SELECT COUNT(*) AS count 
+          FROM payments 
+          WHERE ticket_id = @ticket_id 
+            AND payment_status = 'settlement'
+        `);
+
+        if (existingPayment.recordset[0].count > 0) {
+            return res.status(400).json({ message: 'This ticket has already been purchased by someone else.' });
+        }
 
     const randomString = generateRandomString(15);
     const order_id = `${randomString}${ticket_id}`;
@@ -44,7 +58,7 @@ router.post('/create-transaction', authenticateJWT, async (req, res) => {
         },
     };
 
-    try {
+  
         const transaction = await coreApi.charge(parameter);
 
         console.log('Midtrans Response:', transaction);
