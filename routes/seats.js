@@ -64,16 +64,14 @@ router.get('/get-seat-reservations/:showtime_id', authenticateJWT, async (req, r
                 WHERE showtime_id = @showtime_id
             `);
 
-        if (result.recordset.length === 0) {
-            return res.status(404).json({ message: 'No seat reservations found for this showtime' });
-        }
-
-        res.status(200).json(result.recordset);
+      
+        res.status(200).json(result.recordset.length > 0 ? result.recordset : []);
     } catch (err) {
         console.error('Error fetching seat reservations:', err.stack || err.message);
         res.status(500).json({ message: 'Error fetching seat reservations', error: err.message });
     }
 });
+
 
 // DELETE method to remove a seat reservation based on showtime_id and seat_number
 router.delete('/delete-seat-reservation/:showtime_id/:seat_number',
