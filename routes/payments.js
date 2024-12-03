@@ -3,7 +3,7 @@ const express = require('express');
 const dbConfig = require('../config/dbConfig');
 const authenticateJWT = require('../Middleware/authenticateJWT');
 const fetch = require('node-fetch');
-
+const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
@@ -32,8 +32,6 @@ async function getMidtransTransactionStatus(order_id) {
         throw new Error('Error fetching transaction status: ' + error.message);
     }
 }
-
-const { body, validationResult } = require('express-validator');
 
 router.post('/check-payment-status',
     authenticateJWT,

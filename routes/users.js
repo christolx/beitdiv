@@ -34,7 +34,7 @@ router.post('/login',
             try {
                 const payload = {id: user.user_id, email: user.email, phone: user.phone_number};
                 const accessToken = jwt.sign(payload, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'});
-                const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET);
+                const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {expiresIn: '1w'});
 
                 const pool = await dbConfig.connectToDatabase();
                 await pool.request()
