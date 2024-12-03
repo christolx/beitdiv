@@ -33,81 +33,88 @@ async function getMidtransTransactionStatus(order_id) {
     }
 }
 
-router.post('/check-payment-status', authenticateJWT, async (req, res) => {
-    const { order_id } = req.body;
+const { body, validationResult } = require('express-validator');
 
-    if (!order_id) {
-        return res.status(400).json({ message: 'Order ID is required' });
-    }
-
-    try {
-        const transactionStatus = await getMidtransTransactionStatus(order_id);
-        const { transaction_status, payment_type, gross_amount, order_id: returnedOrderId, va_numbers } = transactionStatus;
-
-        const vaNumber = va_numbers && va_numbers.length > 0 ? va_numbers[0].va_number : null;
-
-        console.log(`Order ID: ${returnedOrderId}`);
-        console.log(`Transaction Status: ${transaction_status}`);
-        console.log(`Payment Type: ${payment_type}`);
-        console.log(`Gross Amount: ${gross_amount}`);
-        console.log(`VA Number: ${vaNumber}`);
-
-        const ticketId = order_id.slice(15); 
-
-        const pool = await dbConfig.connectToDatabase();
-
-        const ticketCheck = await pool.request()
-        .input('ticket_id', ticketId)
-        .query(`
-            SELECT COUNT(*) AS count
-            FROM payments
-            WHERE ticket_id = @ticket_id AND payment_status = 'settlement'
-        `);
-
-        if (ticketCheck.recordset[0].count > 0) {
-            return res.status(400).json({ message: 'Someone already bought this ticket' });
-        }
-        
-        const existingPayment = await pool.request()
-        .input('order_id', order_id)
-        .query('SELECT COUNT(*) AS count FROM payments WHERE order_id = @order_id');
-
-        if (existingPayment.recordset[0].count > 0) {
-        return res.status(400).json({ message: 'Payment record already exists for this order ID' });
+router.post('/check-payment-status',
+    authenticateJWT,
+    body('order_id').isString().withMessage('Order ID must be a string').notEmpty().withMessage('Order ID is required'),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
         }
 
-        await pool.request()
-            .input('order_id', order_id)
-            .input('ticket_id', ticketId)
-            .input('payment_method', payment_type)
-            .input('payment_status', transaction_status)
-            .input('amount', gross_amount)
-            .input('va_number', vaNumber)
-            .input(
-                'payment_date',
-                transaction_status === 'settlement' ? new Date() : null
-            )
-            .query(`
-                INSERT INTO payments (order_id, ticket_id, payment_method, payment_status, amount, va_number, payment_date)
-                VALUES (@order_id, @ticket_id, @payment_method, @payment_status, @amount, @va_number, @payment_date)
-            `);
+        const { order_id } = req.body;
 
-        if (transaction_status === 'settlement') {
-            await pool.request()
+        try {
+            const transactionStatus = await getMidtransTransactionStatus(order_id);
+            const { transaction_status, payment_type, gross_amount, order_id: returnedOrderId, va_numbers } = transactionStatus;
+
+            const vaNumber = va_numbers && va_numbers.length > 0 ? va_numbers[0].va_number : null;
+
+            console.log(`Order ID: ${returnedOrderId}`);
+            console.log(`Transaction Status: ${transaction_status}`);
+            console.log(`Payment Type: ${payment_type}`);
+            console.log(`Gross Amount: ${gross_amount}`);
+            console.log(`VA Number: ${vaNumber}`);
+
+            const ticketId = order_id.slice(15);
+
+            const pool = await dbConfig.connectToDatabase();
+
+            const ticketCheck = await pool.request()
                 .input('ticket_id', ticketId)
                 .query(`
-                    UPDATE tickets
-                    SET status = 'Completed'
-                    WHERE ticket_id = @ticket_id
-                `);
-        }
+                SELECT COUNT(*) AS count
+                FROM payments
+                WHERE ticket_id = @ticket_id AND payment_status = 'settlement'
+            `);
 
-        res.status(201).json({ message: 'Payment status updated successfully', transactionStatus });
-    } catch (error) {
-        console.error('Error handling payment status:', error.message);
-        res.status(500).json({ message: 'Error handling payment status', error: error.message });
+            if (ticketCheck.recordset[0].count > 0) {
+                return res.status(400).json({ message: 'Someone already bought this ticket' });
+            }
+
+            const existingPayment = await pool.request()
+                .input('order_id', order_id)
+                .query('SELECT COUNT(*) AS count FROM payments WHERE order_id = @order_id');
+
+            if (existingPayment.recordset[0].count > 0) {
+                return res.status(400).json({ message: 'Payment record already exists for this order ID' });
+            }
+
+            await pool.request()
+                .input('order_id', order_id)
+                .input('ticket_id', ticketId)
+                .input('payment_method', payment_type)
+                .input('payment_status', transaction_status)
+                .input('amount', gross_amount)
+                .input('va_number', vaNumber)
+                .input(
+                    'payment_date',
+                    transaction_status === 'settlement' ? new Date() : null
+                )
+                .query(`
+                    INSERT INTO payments (order_id, ticket_id, payment_method, payment_status, amount, va_number, payment_date)
+                    VALUES (@order_id, @ticket_id, @payment_method, @payment_status, @amount, @va_number, @payment_date)
+                `);
+
+            if (transaction_status === 'settlement') {
+                await pool.request()
+                    .input('ticket_id', ticketId)
+                    .query(`
+                        UPDATE tickets
+                        SET status = 'Completed'
+                        WHERE ticket_id = @ticket_id
+                    `);
+            }
+
+            res.status(201).json({ message: 'Payment status updated successfully', transactionStatus });
+        } catch (error) {
+            console.error('Error handling payment status:', error.message);
+            res.status(500).json({ message: 'Error handling payment status', error: error.message });
+        }
     }
-});
+);
 
 router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
     const { order_id } = req.body;

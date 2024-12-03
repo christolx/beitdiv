@@ -14,7 +14,6 @@ function generateRandomString(length) {
     return result;
 }
 
-
 router.post('/create-transaction', authenticateJWT, async (req, res) => {
     const { ticket_id, gross_amount, bank } = req.body;
 
