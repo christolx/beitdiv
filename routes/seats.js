@@ -63,7 +63,6 @@ router.get('/get-seat-reservations/:showtime_id', authenticateJWT, async (req, r
                 FROM seat_reservations
                 WHERE showtime_id = @showtime_id
             `);
-
       
         res.status(200).json(result.recordset.length > 0 ? result.recordset : []);
     } catch (err) {
