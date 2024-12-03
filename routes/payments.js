@@ -192,17 +192,18 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
 });
 
 router.get('/payments', authenticateJWT, async (req, res) => {
-    const user_id = req.user.id; 
-    console.log(`Fetching payments for user_id: ${user_id}`);  
-  
+    const user_id = req.user.id;
+    console.log(`Fetching payments for user_id: ${user_id}`);
+
     try {
-      const pool = await dbConfig.connectToDatabase();
-  
-      const result = await pool
-        .request()
-        .input('user_id', user_id)
-        .query(`
+        const pool = await dbConfig.connectToDatabase();
+
+        const result = await pool
+            .request()
+            .input('user_id', user_id)
+            .query(`
             SELECT 
+                p.ticket_id,
                 p.order_id,
                 gt.seat_number, 
                 p.payment_method,
@@ -215,23 +216,23 @@ router.get('/payments', authenticateJWT, async (req, res) => {
             ON p.ticket_id = gt.ticket_id 
             WHERE gt.user_id = @user_id;
         `);
-  
-      console.log(result.recordset);  
-  
-      if (result.recordset.length === 0) {
-        return res.status(404).json({ message: 'No payments found for the user' });
-      }
-  
-      res.status(200).json(result.recordset);
+
+        console.log(result.recordset);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'No payments found for the user' });
+        }
+
+        res.status(200).json(result.recordset);
     } catch (error) {
-      console.error('Error retrieving payment details:', error.message);
-      res.status(500).json({ message: 'Error retrieving payment details', error: error.message });
+        console.error('Error retrieving payment details:', error.message);
+        res.status(500).json({ message: 'Error retrieving payment details', error: error.message });
     }
-  });
+});
 
   router.post('/check-ticket-status', authenticateJWT, async (req, res) => {
     const { ticket_id } = req.body;
-  
+
     if (!ticket_id) {
       return res.status(400).json({ message: 'Ticket ID is required.' });
     }

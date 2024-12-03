@@ -121,7 +121,6 @@ router.delete('/delete-group-ticket/:group_ticket_id', authenticateJWT, async (r
 
     try {
         const pool = await dbConfig.connectToDatabase();
-
         const groupTicketResult = await pool.request()
             .input('group_ticket_id', group_ticket_id)
             .query(`
@@ -141,11 +140,17 @@ router.delete('/delete-group-ticket/:group_ticket_id', authenticateJWT, async (r
         const paymentsResult = await pool.request()
             .input('group_ticket_id', group_ticket_id)
             .query(`
-                DELETE FROM payments 
+                SELECT payment_id 
+                FROM payments 
                 WHERE ticket_id = @group_ticket_id
             `);
 
-        const deletedPaymentCount = paymentsResult.rowsAffected[0];
+        if (paymentsResult.recordset.length > 0) {
+            return res.status(400).json({
+                message: 'Cannot delete GroupTicket because it has associated payments.',
+                payments: paymentsResult.recordset
+            });
+        }
 
         const ticketIdsResult = await pool.request()
             .input('showtime_id', showtime_id)
@@ -183,8 +188,7 @@ router.delete('/delete-group-ticket/:group_ticket_id', authenticateJWT, async (r
             `);
 
         res.status(200).json({
-            message: 'GroupTicket and associated data deleted successfully',
-            deleted_payments: deletedPaymentCount,
+            message: 'GroupTicket and associated tickets and seat reservations deleted successfully',
             deleted_ticket_ids: relatedTicketIds,
             deleted_seat_numbers: seatNumbers
         });
@@ -193,6 +197,5 @@ router.delete('/delete-group-ticket/:group_ticket_id', authenticateJWT, async (r
         res.status(500).json({ message: 'Error deleting group ticket', error: err.message });
     }
 });
-
 
 module.exports = router;
