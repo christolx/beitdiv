@@ -305,7 +305,8 @@ router.get('/movie-details/:movie_id', async (req, res) => {
                     producer,
                     director,
                     trailer_link,
-                    synopsis
+                    synopsis,
+                    status
                 FROM movies
                 WHERE movie_id = @movie_id
             `);
