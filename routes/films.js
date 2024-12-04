@@ -142,7 +142,7 @@ router.post('/insert-movie',
         body('dimension').isIn(['2D', '3D', 'IMAX']).withMessage('Dimension must be either 2D, 3D, or IMAX'),
         body('language').notEmpty().withMessage('Language is required'),
         body('release_date').isDate().withMessage('Invalid release date format'),
-        body('poster_link').isString().withMessage('poster_link should be a String.'),
+        body('poster_link').isURL().withMessage('poster_link should be a String.'),
         body('status')
             .isIn(['Upcoming', 'Tayang', 'Archived'])
             .withMessage('Status must be either Upcoming, Tayang, or Archived'),
