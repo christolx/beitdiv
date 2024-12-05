@@ -130,12 +130,10 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
         console.log(`Payment Type: ${payment_type}`);
         console.log(`Gross Amount: ${gross_amount}`);
 
-        const ticket_id = order_id.slice(15); // Extract ticket_id
+        const ticket_id = order_id.slice(15);
 
-        // Connect to the database
         const pool = await dbConfig.connectToDatabase();
 
-        // Check if payment_date already exists in the payments table
         const result = await pool.request()
             .input('order_id', order_id)
             .query(`
@@ -144,15 +142,12 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
 
         let payment_date = null;
 
-        // If transaction_status is 'settlement' and payment_date is not already set, update it
         if (transaction_status === 'settlement' && !result.recordset[0].payment_date) {
-            payment_date = new Date();  // Set payment date to current date if not already set
+            payment_date = new Date();
         } else {
-            // If payment_date already exists, don't change it
             payment_date = result.recordset[0].payment_date;
         }
 
-        // Update payments table
         await pool.request()
             .input('order_id', order_id)
             .input('payment_status', transaction_status)
@@ -165,7 +160,6 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
             `);
 
         if (transaction_status === 'settlement') {
-            // Update tickets table
             await pool.request()
                 .input('ticket_id', ticket_id)
                 .input('payment_date', payment_date)
