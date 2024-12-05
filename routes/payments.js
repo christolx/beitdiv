@@ -9,10 +9,10 @@ const router = express.Router();
 
 async function getMidtransTransactionStatus(order_id) {
     const url = `https://api.sandbox.midtrans.com/v2/${order_id}/status`;
-    
-    
+
+
     const username = process.env.MIDTRANS_SERVER_KEY;
-    const password = '';  
+    const password = '';
 
     try {
         const response = await fetch(url, {
@@ -27,7 +27,7 @@ async function getMidtransTransactionStatus(order_id) {
         }
 
         const data = await response.json();
-        return data; 
+        return data;
     } catch (error) {
         throw new Error('Error fetching transaction status: ' + error.message);
     }
@@ -130,8 +130,12 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
         console.log(`Payment Type: ${payment_type}`);
         console.log(`Gross Amount: ${gross_amount}`);
 
-        const ticket_id = order_id.slice(15); // Extract ticket_id
-        const payment_date = transaction_status === 'settlement' ? new Date() : null; // Tentukan payment_date
+        const ticket_id = order_id.slice(15);
+
+        if (!transaction_status) {
+            const payment_date = transaction_status === 'settlement' ? new Date() : null;
+        }
+
         const pool = await dbConfig.connectToDatabase();
 
         // Update payments table
@@ -236,10 +240,10 @@ router.get('/payments', authenticateJWT, async (req, res) => {
     if (!ticket_id) {
       return res.status(400).json({ message: 'Ticket ID is required.' });
     }
-  
+
     try {
       const pool = await dbConfig.connectToDatabase();
-  
+
       // Query untuk memeriksa apakah ticket_id ada di tabel payments
       const paymentResult = await pool
         .request()
@@ -249,15 +253,15 @@ router.get('/payments', authenticateJWT, async (req, res) => {
           FROM payments
           WHERE ticket_id = @ticket_id
         `);
-  
+
       // Jika ticket_id sudah ada di payments (berarti sudah dibayar)
       if (paymentResult.recordset.length > 0) {
         return res.status(400).json({ message: 'Someone Already Bought this Ticket.' });
       }
-  
+
       // Jika ticket_id tidak ada di payments, berarti belum dibayar
       return res.status(200).json({ message: 'Ticket is available for booking.' });
-  
+
     } catch (error) {
       console.error('Error checking ticket and payment status:', error);
       res.status(500).json({ message: 'Error checking ticket and payment status', error: error.message });

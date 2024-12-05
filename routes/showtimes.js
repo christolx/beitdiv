@@ -117,6 +117,68 @@ router.post('/add-showtime',
     }
 );
 
+router.post('/add-multiple-showtimes',
+    [
+        (req, res, next) => {
+            const apiKey = req.headers['x-api-key'];
+            if (!apiKey || apiKey !== VALID_API_KEY) {
+                return res.status(403).json({ message: 'Forbidden: Invalid API Key' });
+            }
+            next();
+        },
+        body('showtimes')
+            .isArray()
+            .withMessage('Showtimes must be an array')
+            .custom((value) => {
+                value.forEach((showtime, index) => {
+                    if (!showtime.movie_id || !Number.isInteger(showtime.movie_id) || showtime.movie_id < 1) {
+                        throw new Error(`Movie ID at index ${index} must be a positive integer`);
+                    }
+                    if (!showtime.theater_id || !Number.isInteger(showtime.theater_id) || showtime.theater_id < 1) {
+                        throw new Error(`Theater ID at index ${index} must be a positive integer`);
+                    }
+                    if (!showtime.showtime || !Date.parse(showtime.showtime)) {
+                        throw new Error(`Showtime at index ${index} must be a valid date and time`);
+                    }
+                    if (!showtime.available_seats || !Number.isInteger(showtime.available_seats) || showtime.available_seats < 1) {
+                        throw new Error(`Available seats at index ${index} must be a positive integer`);
+                    }
+                });
+                return true;
+            })
+    ],
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const showtimes = req.body.showtimes;
+
+        try {
+            const pool = await dbConfig.connectToDatabase();
+            const insertPromises = showtimes.map(showtime => {
+                return pool.request()
+                    .input('movie_id', showtime.movie_id)
+                    .input('theater_id', showtime.theater_id)
+                    .input('showtime', showtime.showtime)
+                    .input('available_seats', showtime.available_seats)
+                    .query(`
+                        INSERT INTO showtimes (movie_id, theater_id, showtime, available_seats)
+                        VALUES (@movie_id, @theater_id, @showtime, @available_seats)
+                    `);
+            });
+
+            await Promise.all(insertPromises);
+
+            res.status(201).json({ message: 'Showtimes added successfully' });
+        } catch (err) {
+            console.error('Error adding showtimes:', err.stack || err.message);
+            res.status(500).json({ message: 'Error adding showtimes', error: err.message });
+        }
+    }
+);
+
 // DELETE method to remove a specific showtime (requires API Key)
 router.delete('/delete-showtime/:showtime_id',
     [
