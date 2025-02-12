@@ -9,10 +9,10 @@ const router = express.Router();
 
 async function getMidtransTransactionStatus(order_id) {
     const url = `https://api.sandbox.midtrans.com/v2/${order_id}/status`;
-    
-    
+
+
     const username = process.env.MIDTRANS_SERVER_KEY;
-    const password = '';  
+    const password = '';
 
     try {
         const response = await fetch(url, {
@@ -27,7 +27,7 @@ async function getMidtransTransactionStatus(order_id) {
         }
 
         const data = await response.json();
-        return data; 
+        return data;
     } catch (error) {
         throw new Error('Error fetching transaction status: ' + error.message);
     }
@@ -130,11 +130,24 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
         console.log(`Payment Type: ${payment_type}`);
         console.log(`Gross Amount: ${gross_amount}`);
 
-        const ticket_id = order_id.slice(15); // Extract ticket_id
-        const payment_date = transaction_status === 'settlement' ? new Date() : null; // Tentukan payment_date
+        const ticket_id = order_id.slice(15);
+
         const pool = await dbConfig.connectToDatabase();
 
-        // Update payments table
+        const result = await pool.request()
+            .input('order_id', order_id)
+            .query(`
+                SELECT payment_date FROM payments WHERE order_id = @order_id
+            `);
+
+        let payment_date = null;
+
+        if (transaction_status === 'settlement' && !result.recordset[0].payment_date) {
+            payment_date = new Date();
+        } else {
+            payment_date = result.recordset[0].payment_date;
+        }
+
         await pool.request()
             .input('order_id', order_id)
             .input('payment_status', transaction_status)
@@ -147,7 +160,6 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
             `);
 
         if (transaction_status === 'settlement') {
-            // Update tickets table
             await pool.request()
                 .input('ticket_id', ticket_id)
                 .input('payment_date', payment_date)
@@ -170,7 +182,6 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
                     );
                 `);
 
-            // Update GroupTicket table
             await pool.request()
                 .input('ticket_id', ticket_id)
                 .input('payment_date', payment_date)
@@ -192,17 +203,18 @@ router.post('/RefreshStatus', authenticateJWT, async (req, res) => {
 });
 
 router.get('/payments', authenticateJWT, async (req, res) => {
-    const user_id = req.user.id; 
-    console.log(`Fetching payments for user_id: ${user_id}`);  
-  
+    const user_id = req.user.id;
+    console.log(`Fetching payments for user_id: ${user_id}`);
+
     try {
-      const pool = await dbConfig.connectToDatabase();
-  
-      const result = await pool
-        .request()
-        .input('user_id', user_id)
-        .query(`
+        const pool = await dbConfig.connectToDatabase();
+
+        const result = await pool
+            .request()
+            .input('user_id', user_id)
+            .query(`
             SELECT 
+                p.ticket_id,
                 p.order_id,
                 gt.seat_number, 
                 p.payment_method,
@@ -215,30 +227,30 @@ router.get('/payments', authenticateJWT, async (req, res) => {
             ON p.ticket_id = gt.ticket_id 
             WHERE gt.user_id = @user_id;
         `);
-  
-      console.log(result.recordset);  
-  
-      if (result.recordset.length === 0) {
-        return res.status(404).json({ message: 'No payments found for the user' });
-      }
-  
-      res.status(200).json(result.recordset);
+
+        console.log(result.recordset);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'No payments found for the user' });
+        }
+
+        res.status(200).json(result.recordset);
     } catch (error) {
-      console.error('Error retrieving payment details:', error.message);
-      res.status(500).json({ message: 'Error retrieving payment details', error: error.message });
+        console.error('Error retrieving payment details:', error.message);
+        res.status(500).json({ message: 'Error retrieving payment details', error: error.message });
     }
-  });
+});
 
   router.post('/check-ticket-status', authenticateJWT, async (req, res) => {
     const { ticket_id } = req.body;
-  
+
     if (!ticket_id) {
       return res.status(400).json({ message: 'Ticket ID is required.' });
     }
-  
+
     try {
       const pool = await dbConfig.connectToDatabase();
-  
+
       // Query untuk memeriksa apakah ticket_id ada di tabel payments
       const paymentResult = await pool
         .request()
@@ -248,15 +260,15 @@ router.get('/payments', authenticateJWT, async (req, res) => {
           FROM payments
           WHERE ticket_id = @ticket_id
         `);
-  
+
       // Jika ticket_id sudah ada di payments (berarti sudah dibayar)
       if (paymentResult.recordset.length > 0) {
         return res.status(400).json({ message: 'Someone Already Bought this Ticket.' });
       }
-  
+
       // Jika ticket_id tidak ada di payments, berarti belum dibayar
       return res.status(200).json({ message: 'Ticket is available for booking.' });
-  
+
     } catch (error) {
       console.error('Error checking ticket and payment status:', error);
       res.status(500).json({ message: 'Error checking ticket and payment status', error: error.message });

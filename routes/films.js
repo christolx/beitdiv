@@ -138,11 +138,11 @@ router.post('/insert-movie',
         },
         body('movie_name').notEmpty().withMessage('Movie name is required'),
         body('age_rating').notEmpty().withMessage('Age rating is required'),
-        body('duration').isInt({min: 1}).withMessage('Duration must be a positive integer'),
+        body('duration').isInt(),
         body('dimension').isIn(['2D', '3D', 'IMAX']).withMessage('Dimension must be either 2D, 3D, or IMAX'),
         body('language').notEmpty().withMessage('Language is required'),
         body('release_date').isDate().withMessage('Invalid release date format'),
-        body('poster_link').isURL().withMessage('Invalid poster link'),
+        body('poster_link').isURL().withMessage('poster_link should be a String.'),
         body('status')
             .isIn(['Upcoming', 'Tayang', 'Archived'])
             .withMessage('Status must be either Upcoming, Tayang, or Archived'),
@@ -305,7 +305,8 @@ router.get('/movie-details/:movie_id', async (req, res) => {
                     producer,
                     director,
                     trailer_link,
-                    synopsis
+                    synopsis,
+                    status
                 FROM movies
                 WHERE movie_id = @movie_id
             `);
